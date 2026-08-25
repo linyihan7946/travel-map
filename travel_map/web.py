@@ -7,6 +7,7 @@ highlighting, permanent labels, and the in-page export button already work).
 import json
 import tempfile
 
+import folium
 from flask import Flask, jsonify, render_template, request
 
 from . import geo, llm
@@ -108,7 +109,16 @@ def _build_map(region_geojson: dict, resolved: dict, attractions: list[dict]):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    # Keep a real interactive map as the full-screen surface from first paint,
+    # before the user has generated a destination-specific result.
+    initial_map = folium.Map(
+        location=[35.8, 104.2],
+        zoom_start=4,
+        tiles="OpenStreetMap",
+        control_scale=True,
+        zoom_control=True,
+    ).get_root().render()
+    return render_template("index.html", initial_map=initial_map)
 
 
 @app.route("/api/generate", methods=["POST"])

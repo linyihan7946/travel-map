@@ -64,7 +64,11 @@ POST /api/generate {region, attractions}
 ## 开发约定
 
 ### 1. 修改代码后必须重启服务
-**每次修改 Python 源码后，必须重启 `travel-map serve`。** Flask 开发服务器不会对所有变更自动重载（尤其是导入结构、`.env`、依赖变更）。操作步骤：
+**每次修改 Python 源码后，必须重启 `travel-map serve`。** Flask 开发服务器不会对所有变更自动重载（尤其是导入结构、`.env`、依赖变更）。
+
+**⚠️ 重要：重启前必须先杀掉旧进程，否则会出现多个进程抢占端口、模板缓存不更新等问题。**
+
+#### Linux / macOS
 ```bash
 # 停止已有服务
 for pid in $(lsof -ti:8000 2>/dev/null); do kill -9 $pid 2>/dev/null; done
@@ -72,6 +76,16 @@ for pid in $(lsof -ti:8000 2>/dev/null); do kill -9 $pid 2>/dev/null; done
 python -m travel_map.web &
 sleep 2
 curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/
+```
+
+#### Windows
+```powershell
+# 查找占用 8000 端口的进程
+netstat -ano | findstr :8000
+# 杀掉对应 PID（将 <PID> 替换为实际进程号）
+taskkill //F //PID <PID>
+# 重新启动
+python -m travel_map.web
 ```
 
 ### 2. 安全规范

@@ -2,163 +2,365 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>旅行地图生成器</title>
     <style>
         :root {
-            --accent: #e74c3c;
-            --accent2: #f39c12;
-            --text: #2c3e50;
-            --muted: #7f8c8d;
-            --bg: #f5f6f8;
-            --card: #ffffff;
+            --accent: #ef4d3c;
+            --ink: #182433;
+            --muted: #667788;
+            --line: rgba(24, 36, 51, 0.12);
+            --glass: rgba(255, 255, 255, 0.94);
+            --shadow: 0 16px 44px rgba(23, 35, 49, 0.18), 0 3px 10px rgba(23, 35, 49, 0.08);
+            --radius: 18px;
         }
         * { box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
         body {
-            margin: 0;
-            font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
-            color: var(--text);
-            background: var(--bg);
+            color: var(--ink);
+            background: #dce5e9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
         }
-        header {
-            background: linear-gradient(120deg, #e74c3c, #f39c12);
-            color: #fff;
-            padding: 28px 24px;
-            text-align: center;
-        }
-        header h1 { margin: 0 0 6px; font-size: 24px; }
-        header p { margin: 0; opacity: 0.92; font-size: 14px; }
-        .wrap { max-width: 960px; margin: 0 auto; padding: 20px; }
-        .card {
-            background: var(--card);
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-            padding: 22px;
-            margin-bottom: 20px;
-        }
-        label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: 14px; }
-        label:first-of-type { margin-top: 0; }
-        input[type="text"], textarea {
+
+        #map-container, #map-frame {
+            position: fixed;
+            inset: 0;
             width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #d5dbe0;
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: inherit;
-            color: var(--text);
+            height: 100%;
         }
-        input[type="text"]:focus, textarea:focus {
-            outline: none;
-            border-color: var(--accent2);
-            box-shadow: 0 0 0 3px rgba(243,156,18,0.15);
+        #map-container { z-index: 0; }
+        #map-frame { display: block; border: 0; background: #dce5e9; }
+        .map-shade {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background:
+                linear-gradient(to bottom, rgba(18, 30, 40, 0.09), transparent 20%),
+                linear-gradient(to top, rgba(18, 30, 40, 0.08), transparent 16%);
         }
-        textarea { min-height: 90px; resize: vertical; }
-        .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
-        button {
-            margin-top: 18px;
-            background: var(--accent);
+
+        /* Top floating input panel */
+        #search-panel {
+            position: fixed;
+            top: max(16px, env(safe-area-inset-top));
+            left: 50%;
+            z-index: 20;
+            width: min(960px, calc(100% - 32px));
+            padding: 14px 16px 16px;
+            transform: translateX(-50%);
+            border: 1px solid rgba(255, 255, 255, 0.72);
+            border-radius: var(--radius);
+            background: var(--glass);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(18px) saturate(1.15);
+            -webkit-backdrop-filter: blur(18px) saturate(1.15);
+        }
+        #panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .brand-mark {
+            display: grid;
+            width: 34px;
+            height: 34px;
+            flex: 0 0 auto;
+            place-items: center;
             color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 12px 26px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(231,76,60,0.35);
+            border-radius: 11px;
+            background: linear-gradient(145deg, var(--accent), #f28b36);
+            box-shadow: 0 5px 12px rgba(239, 77, 60, 0.28);
+            font-size: 17px;
         }
-        button:hover { background: #c0392b; }
-        button:disabled { background: #bdc3c7; cursor: not-allowed; box-shadow: none; }
-        #status { margin-top: 14px; font-size: 14px; min-height: 20px; }
-        #status.error { color: #c0392b; }
-        #status.info { color: var(--muted); }
-        #result { display: none; }
-        #result .meta {
-            font-size: 13px;
+        .brand-copy { min-width: 0; }
+        .brand h1 { margin: 0; font-size: 16px; line-height: 1.2; }
+        .brand p {
+            margin: 3px 0 0;
+            overflow: hidden;
             color: var(--muted);
-            margin-bottom: 10px;
+            font-size: 12px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        iframe.map-frame {
-            width: 100%;
-            height: 70vh;
-            border: 1px solid #e0e4e8;
+        #toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex: 0 0 auto;
+            padding: 7px 10px;
+            color: var(--muted);
+            border: 0;
             border-radius: 10px;
-            background: #fff;
+            background: transparent;
+            font: inherit;
+            font-size: 12px;
+            cursor: pointer;
         }
-        /* Mobile responsive */
-        @media (max-width: 640px) {
-            header { padding: 18px 16px; }
-            header h1 { font-size: 20px; }
-            header p { font-size: 13px; }
-            .wrap { padding: 12px; }
-            .card { padding: 16px; border-radius: 10px; margin-bottom: 14px; }
-            label { font-size: 13px; margin: 12px 0 5px; }
-            input[type="text"], textarea {
-                padding: 9px 11px;
-                font-size: 15px; /* prevents iOS zoom on focus */
+        #toggle-btn:hover { color: var(--ink); background: rgba(24, 36, 51, 0.06); }
+        #toggle-icon { font-size: 14px; transition: transform 0.2s ease; }
+
+        #panel-body {
+            display: grid;
+            grid-template-columns: minmax(240px, 0.9fr) minmax(340px, 1.4fr);
+            gap: 12px;
+            margin-top: 13px;
+            padding-top: 13px;
+            border-top: 1px solid var(--line);
+        }
+        #search-panel.collapsed { width: min(420px, calc(100% - 32px)); padding-bottom: 14px; }
+        #search-panel.collapsed #panel-body { display: none; }
+        #search-panel.collapsed #toggle-icon { transform: rotate(180deg); }
+        #search-panel.collapsed .brand p { display: none; }
+
+        .field { min-width: 0; }
+        label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 0 0 6px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        label span { color: var(--muted); font-size: 11px; font-weight: 400; }
+        input, textarea {
+            width: 100%;
+            color: var(--ink);
+            border: 1px solid #d8dfe5;
+            border-radius: 11px;
+            outline: 0;
+            background: rgba(248, 250, 251, 0.92);
+            font: inherit;
+            font-size: 14px;
+            transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+        input { height: 46px; padding: 0 13px; }
+        textarea { height: 46px; min-height: 46px; padding: 12px 13px; resize: vertical; }
+        input:focus, textarea:focus {
+            border-color: rgba(239, 77, 60, 0.7);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(239, 77, 60, 0.11);
+        }
+        .hint {
+            margin: 5px 2px 0;
+            overflow: hidden;
+            color: var(--muted);
+            font-size: 11px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Bottom floating action dock */
+        #action-dock {
+            position: fixed;
+            left: 50%;
+            bottom: max(20px, env(safe-area-inset-bottom));
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: auto;
+            max-width: calc(100% - 32px);
+            min-height: 64px;
+            padding: 8px;
+            transform: translateX(-50%);
+            border: 1px solid rgba(255, 255, 255, 0.72);
+            border-radius: 20px;
+            background: var(--glass);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(18px) saturate(1.15);
+            -webkit-backdrop-filter: blur(18px) saturate(1.15);
+        }
+        #result-summary { display: none; min-width: 0; max-width: 480px; padding: 4px 6px 4px 10px; }
+        #result-summary.visible { display: block; }
+        #meta {
+            overflow: hidden;
+            font-size: 13px;
+            font-weight: 700;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        #status.error { color: #bd3428; }
+        #status.ok { color: #208456; }
+        #go {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            min-width: 210px;
+            height: 48px;
+            padding: 0 22px;
+            color: #fff;
+            border: 0;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--accent), #f06437);
+            box-shadow: 0 8px 18px rgba(239, 77, 60, 0.3);
+            font: inherit;
+            font-size: 15px;
+            font-weight: 750;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+        }
+        #go:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(239, 77, 60, 0.36); }
+        #go:active { transform: translateY(0); }
+        #go:disabled { cursor: wait; filter: grayscale(0.35); opacity: 0.78; }
+        #go .shortcut {
+            padding: 2px 6px;
+            color: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+        .spinner {
+            width: 12px;
+            height: 12px;
+            flex: 0 0 auto;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 720px) {
+            #search-panel {
+                top: max(8px, env(safe-area-inset-top));
+                width: calc(100% - 16px);
+                padding: 12px;
+                border-radius: 15px;
             }
-            textarea { min-height: 72px; }
-            .hint { font-size: 11px; }
-            button {
-                width: 100%;
-                padding: 13px 20px;
-                font-size: 15px;
-                margin-top: 14px;
+            #search-panel.collapsed { width: calc(100% - 16px); }
+            #panel-body { grid-template-columns: 1fr; gap: 10px; }
+            .brand p, .hint { display: none; }
+            textarea { height: 52px; }
+            #action-dock {
+                bottom: max(8px, env(safe-area-inset-bottom));
+                width: calc(100% - 16px);
+                max-width: none;
+                min-height: 62px;
+                border-radius: 16px;
             }
-            #status { font-size: 13px; }
-            #result .meta { font-size: 12px; }
-            iframe.map-frame { height: 55vh; border-radius: 8px; }
+            #result-summary.visible { flex: 1; }
+            #result-summary.visible + #go { min-width: 142px; padding: 0 14px; }
+            #result-summary.visible + #go .shortcut { display: none; }
+            #go { flex: 1; min-width: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { transition: none !important; }
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>🗺️ 旅行地图生成器</h1>
-        <p>输入地区与景点列表，自动高亮区域并标记景点</p>
-    </header>
+    <main id="map-container" aria-label="旅行地图">
+        <iframe id="map-frame" title="旅行地图"></iframe>
+    </main>
+    <div class="map-shade" aria-hidden="true"></div>
 
-    <div class="wrap">
-        <div class="card">
-            <label for="region">地区（国家 / 省 / 市 / 县 / 乡）</label>
-            <input type="text" id="region" placeholder="例如：云南省、昆明市、大理白族自治州 …">
-            <div class="hint">支持简称（如“云南”），接入大模型后会自动规范化为全称。</div>
+    <section id="search-panel" aria-label="地图信息输入">
+        <div id="panel-header">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true">◆</div>
+                <div class="brand-copy">
+                    <h1>旅行地图生成器</h1>
+                    <p>输入目的地与景点，生成专属景点分布图</p>
+                </div>
+            </div>
+            <button id="toggle-btn" type="button" aria-expanded="true" aria-controls="panel-body">
+                <span id="toggle-label">收起</span><span id="toggle-icon" aria-hidden="true">⌃</span>
+            </button>
+        </div>
 
-            <label for="attractions">景点列表（每行一个，或用逗号分隔）</label>
-            <textarea id="attractions" placeholder="昆明&#10;大理&#10;丽江&#10;香格里拉"></textarea>
-            <div class="hint">也可以只在这里粘贴一行「云南：昆明、大理、丽江」，系统自动拆分。</div>
+        <div id="panel-body">
+            <div class="field">
+                <label for="region">目的地区域 <span>国家 / 省 / 市 / 县 / 乡</span></label>
+                <input type="text" id="region" autocomplete="off" placeholder="例如：四川省 成都市">
+                <div class="hint">支持地区简称，也支持用空格输入行政区层级。</div>
+            </div>
+            <div class="field">
+                <label for="attractions">景点列表 <span>换行、逗号或顿号分隔</span></label>
+                <textarea id="attractions" placeholder="都江堰、青城山、大熊猫繁育研究基地"></textarea>
+                <div class="hint">也可粘贴「成都：都江堰、青城山」并让系统自动拆分。</div>
+            </div>
+        </div>
+    </section>
 
-            <button id="go" type="button">生成地图</button>
+    <section id="action-dock" aria-label="地图生成操作">
+        <div id="result-summary" aria-live="polite">
+            <div id="meta"></div>
             <div id="status"></div>
         </div>
-
-        <div id="result" class="card">
-            <div class="meta" id="meta"></div>
-            <iframe id="frame" class="map-frame" title="map"></iframe>
-        </div>
-    </div>
+        <button id="go" type="button">
+            <span id="go-label">生成地图</span>
+            <span class="shortcut" aria-hidden="true">Ctrl ↵</span>
+        </button>
+    </section>
 
     <script>
+        const initialMap = {{ initial_map|tojson }};
         const go = document.getElementById('go');
+        const goLabel = document.getElementById('go-label');
         const statusEl = document.getElementById('status');
-        const resultEl = document.getElementById('result');
-        const frame = document.getElementById('frame');
+        const summary = document.getElementById('result-summary');
+        const frame = document.getElementById('map-frame');
         const metaEl = document.getElementById('meta');
+        const searchPanel = document.getElementById('search-panel');
+        const toggleBtn = document.getElementById('toggle-btn');
+        const toggleLabel = document.getElementById('toggle-label');
+        const regionInput = document.getElementById('region');
+        const attractionsInput = document.getElementById('attractions');
 
-        function setStatus(msg, kind) {
-            statusEl.textContent = msg;
-            statusEl.className = kind || '';
+        frame.srcdoc = initialMap;
+
+        function setPanelCollapsed(collapsed) {
+            searchPanel.classList.toggle('collapsed', collapsed);
+            toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+            toggleLabel.textContent = collapsed ? '展开输入' : '收起';
         }
 
-        go.addEventListener('click', async () => {
-            const region = document.getElementById('region').value.trim();
-            const attractions = document.getElementById('attractions').value.trim();
+        function setStatus(message, kind, loading = false) {
+            summary.classList.add('visible');
+            statusEl.className = kind || '';
+            statusEl.replaceChildren();
+            if (loading) {
+                const spinner = document.createElement('span');
+                spinner.className = 'spinner';
+                spinner.setAttribute('aria-hidden', 'true');
+                statusEl.appendChild(spinner);
+            }
+            statusEl.appendChild(document.createTextNode(message));
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            setPanelCollapsed(!searchPanel.classList.contains('collapsed'));
+        });
+
+        async function generateMap() {
+            const region = regionInput.value.trim();
+            const attractions = attractionsInput.value.trim();
             if (!region && !attractions) {
-                setStatus('请填写地区或景点列表', 'error');
+                metaEl.textContent = '还缺少旅行信息';
+                setStatus('请填写目的地区域和景点列表', 'error');
+                regionInput.focus();
                 return;
             }
 
             go.disabled = true;
-            setStatus('正在生成地图，请稍候…（大模型解析 + 行政区划 + 渲染）', 'info');
-            resultEl.style.display = 'none';
+            goLabel.textContent = '正在生成';
+            metaEl.textContent = region || '正在识别目的地';
+            setStatus('正在解析地区与景点…', 'info', true);
 
             try {
                 const resp = await fetch('/api/generate', {
@@ -167,19 +369,24 @@
                     body: JSON.stringify({ region, attractions }),
                 });
                 const data = await resp.json();
-                if (!resp.ok) {
-                    throw new Error(data.error || ('HTTP ' + resp.status));
-                }
+                if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+
                 frame.srcdoc = data.html;
-                metaEl.textContent = `地区：${data.region} ｜ 景点：${data.attractions.join('、')}`;
-                resultEl.style.display = 'block';
-                setStatus('生成完成 ✅ 地图右上角可导出图片。', '');
-                resultEl.scrollIntoView({ behavior: 'smooth' });
+                metaEl.textContent = data.region + ' · ' + data.attractions.join('、');
+                setStatus('生成完成，地图右下角可导出图片', 'ok');
+                setPanelCollapsed(true);
+                goLabel.textContent = '重新生成';
             } catch (err) {
-                setStatus('出错：' + err.message, 'error');
+                setStatus('生成失败：' + err.message, 'error');
+                goLabel.textContent = '重试生成';
             } finally {
                 go.disabled = false;
             }
+        }
+
+        go.addEventListener('click', generateMap);
+        document.addEventListener('keydown', (event) => {
+            if (event.ctrlKey && event.key === 'Enter') generateMap();
         });
     </script>
 </body>

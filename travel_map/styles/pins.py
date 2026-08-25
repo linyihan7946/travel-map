@@ -138,7 +138,10 @@ class PinsRenderer(BaseRenderer):
         if self.config.export_button:
             self._add_export_button(m)
 
-        return m._repr_html_()
+        # Return a complete HTML document for the web UI's full-screen iframe.
+        # Folium's notebook representation wraps the map in a fixed-ratio
+        # iframe, which leaves unused space instead of filling the viewport.
+        return m.get_root().render()
 
     def _render_export_png(self, width: int = 1400, height: int = 900) -> bytes:
         """Render the map to PNG bytes for the in-page export button."""
@@ -158,7 +161,7 @@ class PinsRenderer(BaseRenderer):
             fname = fname.replace("--", "-")
         fname = (fname or "travel-map") + ".png"
 
-        export_html = f'''<div style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
+        export_html = f'''<div style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
             <button id="tm-export-btn" style="background:#e74c3c; color:#fff; border:none; border-radius:4px; padding:8px 14px; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.3);">&#128229; 导出图片</button>
         </div>
         <script>
