@@ -4,7 +4,12 @@ from unittest.mock import Mock, patch
 import pytest
 
 from travel_map.config import Location, TravelConfig
-from travel_map.styles.pins import PinsRenderer
+from travel_map.styles.pins import (
+    PinsRenderer,
+    _DEFAULT_MAP_TILE_URL,
+    _map_tile_url,
+    _static_tile_cache_path,
+)
 
 
 @pytest.fixture
@@ -99,3 +104,32 @@ def test_static_region_map_renders_with_offset_label(region_file):
 
     assert image.width > 0
     assert image.height > 0
+
+
+def test_preview_and_export_share_the_same_osm_tile_source(region_file, monkeypatch):
+    monkeypatch.delenv("TRAVEL_MAP_TILE_URL", raising=False)
+    monkeypatch.delenv("TRAVEL_MAP_STATIC_TILE_URL", raising=False)
+    renderer = PinsRenderer(
+        TravelConfig(
+            title="Region map",
+            locations=[Location(name="Attraction", lat=30.5, lon=104.5)],
+            regions=[str(region_file)],
+        )
+    )
+
+    html = renderer.render_interactive()
+
+    assert _map_tile_url() == _DEFAULT_MAP_TILE_URL
+    assert _DEFAULT_MAP_TILE_URL in html
+    assert "openstreetmap.org/copyright" in html
+
+
+def test_tile_cache_is_isolated_by_provider_url(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRAVEL_MAP_TILE_CACHE_DIR", str(tmp_path))
+
+    osm_cache = _static_tile_cache_path("https://tiles-a/{z}/{x}/{y}.png")
+    terrain_cache = _static_tile_cache_path("https://tiles-b/{z}/{x}/{y}.png")
+
+    assert osm_cache.parent == tmp_path
+    assert terrain_cache.parent == tmp_path
+    assert osm_cache != terrain_cache

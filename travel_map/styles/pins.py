@@ -1,23 +1,73 @@
 """Pins style renderer - clean modern map with location markers."""
 
 import base64
+import hashlib
 import html
 import os
 import socket
+import tempfile
+from pathlib import Path
 
 import folium
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import cartopy.io.img_tiles as cimgt
 from PIL import Image
 import io
 import numpy as np
 
 _CJK_FONT_SET = False
-_DEFAULT_STATIC_TILE_URL = (
-    "https://server.arcgisonline.com/ArcGIS/rest/services/"
-    "World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+_DEFAULT_MAP_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+_MAP_ATTRIBUTION = (
+    '&copy; <a href="https://www.openstreetmap.org/copyright">'
+    "OpenStreetMap</a> contributors"
 )
+
+
+def _map_tile_url() -> str:
+    """Return the one tile source shared by preview and PNG export.
+
+    ``TRAVEL_MAP_STATIC_TILE_URL`` remains supported for existing deployments,
+    while ``TRAVEL_MAP_TILE_URL`` is the preferred name because it now controls
+    both render paths.
+    """
+    return (
+        os.environ.get("TRAVEL_MAP_TILE_URL")
+        or os.environ.get("TRAVEL_MAP_STATIC_TILE_URL")
+        or _DEFAULT_MAP_TILE_URL
+    )
+
+
+class _StaticMapTiles(cimgt.GoogleWTS):
+    """Cartopy XYZ tiles backed by the same URL used in the Leaflet preview."""
+
+    def __init__(self, url: str, cache: str | Path):
+        self.url = url
+        super().__init__(
+            cache=cache,
+            user_agent=os.environ.get("TRAVEL_MAP_TILE_USER_AGENT", "travel-map/1.0"),
+        )
+
+    def _image_url(self, tile) -> str:
+        x, y, z = tile
+        return self.url.format(x=x, X=x, y=y, Y=y, z=z, Z=z)
+
+
+def _static_tile_cache_path(tile_url: str) -> Path:
+    """Keep caches from different providers separate.
+
+    Cartopy normally keys cached images only by x/y/z. Reusing that cache
+    after changing providers can therefore make exports show an old terrain
+    layer even when the configured URL has changed.
+    """
+    root = os.environ.get("TRAVEL_MAP_TILE_CACHE_DIR")
+    if root:
+        base = Path(root)
+    else:
+        base = Path(os.environ.get("XDG_CACHE_HOME", tempfile.gettempdir())) / "travel-map-tiles"
+    provider_key = hashlib.sha256(tile_url.encode("utf-8")).hexdigest()[:16]
+    return base / provider_key
 
 
 def _ensure_cjk_font():
@@ -65,8 +115,15 @@ class PinsRenderer(BaseRenderer):
         m = folium.Map(
             location=center,
             zoom_start=4,
-            tiles="OpenStreetMap",
+            tiles=None,
         )
+        folium.TileLayer(
+            tiles=_map_tile_url(),
+            attr=_MAP_ATTRIBUTION,
+            name="OpenStreetMap",
+            overlay=False,
+            control=False,
+        ).add_to(m)
 
         # Region maps should stay focused on the highlighted administrative
         # area.  The generic bounds add a fixed two-degree margin, which is
@@ -212,14 +269,16 @@ class PinsRenderer(BaseRenderer):
         bounds = self._get_export_bounds()
         center_lon = (bounds[2] + bounds[3]) / 2
 
-        # Region-focused maps use real OSM tiles as the base texture; general
+        # Region-focused maps use the exact same tiles as the Leaflet preview;
+        # general
         # trip maps fall back to Natural Earth features.
         tiler = None
         if self.config.regions:
-            import cartopy.io.img_tiles as cimgt
-
-            tile_url = os.environ.get("TRAVEL_MAP_STATIC_TILE_URL", _DEFAULT_STATIC_TILE_URL)
-            tiler = cimgt.GoogleTiles(url=tile_url, cache=True)
+            tile_url = _map_tile_url()
+            tiler = _StaticMapTiles(
+                url=tile_url,
+                cache=_static_tile_cache_path(tile_url),
+            )
             projection = tiler.crs
         else:
             projection = ccrs.PlateCarree(central_longitude=center_lon)
