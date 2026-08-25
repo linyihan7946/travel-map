@@ -169,6 +169,32 @@ travel-map serve --host 0.0.0.0 --port 8000
 - plotly (worldline style)
 - numpy (3D calculations)
 
+## 使用 one-click-deployment 部署
+
+项目根目录已提供生产用 `Dockerfile`、`docker-compose.yml` 和
+`.dockerignore`，可被 `E:\GitHubWorkSpace\one-click-deployment` 直接识别并优先使用。
+
+在一键部署工具中添加模块：
+
+```json
+{
+  "name": "travel-map",
+  "source_path": "E:\\GitHubWorkSpace\\travel-map",
+  "server_path": "travel-map",
+  "port": 8000,
+  "project_type": "python"
+}
+```
+
+部署工具会注入 `PUBLIC_BASE_PATH=/travel-map`，应用会自动适配路径网关，
+访问地址形如 `https://你的域名/travel-map/`。本地 `.env` 不会打包进镜像；
+部署工具会在远程单独写入它，Compose 再将以下变量传给容器：
+
+- `DASHSCOPE_API_KEY`
+- `BAILIAN_MODEL`（可选）
+
+容器使用 Gunicorn 监听 `0.0.0.0:8000`，健康检查地址为 `/healthz`。
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.

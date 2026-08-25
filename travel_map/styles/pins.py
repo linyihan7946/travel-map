@@ -2,6 +2,8 @@
 
 import base64
 import html
+import os
+import socket
 
 import folium
 import matplotlib.pyplot as plt
@@ -12,6 +14,10 @@ import io
 import numpy as np
 
 _CJK_FONT_SET = False
+_DEFAULT_STATIC_TILE_URL = (
+    "https://server.arcgisonline.com/ArcGIS/rest/services/"
+    "World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+)
 
 
 def _ensure_cjk_font():
@@ -212,7 +218,8 @@ class PinsRenderer(BaseRenderer):
         if self.config.regions:
             import cartopy.io.img_tiles as cimgt
 
-            tiler = cimgt.OSM(cache=True)
+            tile_url = os.environ.get("TRAVEL_MAP_STATIC_TILE_URL", _DEFAULT_STATIC_TILE_URL)
+            tiler = cimgt.GoogleTiles(url=tile_url, cache=True)
             projection = tiler.crs
         else:
             projection = ccrs.PlateCarree(central_longitude=center_lon)
@@ -228,7 +235,9 @@ class PinsRenderer(BaseRenderer):
             import math
 
             span_lon = bounds[3] - bounds[2]
-            zoom = max(2, min(round(math.log2(2880 / span_lon)), 13))
+            # About six tiles across gives enough detail for a city map without
+            # downloading dozens of high-zoom tiles during every export.
+            zoom = max(2, min(round(math.log2(1440 / span_lon)), 11))
             try:
                 ax.add_image(tiler, zoom)
             except Exception:
@@ -283,8 +292,15 @@ class PinsRenderer(BaseRenderer):
 
         # Convert to PIL Image
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=100, bbox_inches="tight", facecolor="white")
-        plt.close(fig)
+        # urllib otherwise has no timeout for tile downloads. A single blocked
+        # provider must not hold a Gunicorn worker until its request timeout.
+        previous_timeout = socket.getdefaulttimeout()
+        try:
+            socket.setdefaulttimeout(float(os.environ.get("TRAVEL_MAP_TILE_TIMEOUT", "8")))
+            fig.savefig(buf, format="png", dpi=100, bbox_inches="tight", facecolor="white")
+        finally:
+            socket.setdefaulttimeout(previous_timeout)
+            plt.close(fig)
         buf.seek(0)
 
         return Image.open(buf).copy()

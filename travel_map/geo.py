@@ -120,7 +120,15 @@ def resolve_region(name: str, ancestors: list[str] | None = None) -> dict:
         if matched is None:
             # Scan every province's cities (cached) for a city-level match.
             for p in provinces:
-                m = _match(_children(p["properties"]["adcode"]), target)
+                try:
+                    children = _children(p["properties"]["adcode"])
+                except OSError:
+                    # DataV does not publish a usable ``*_full.json`` for
+                    # every province-level feature. One missing endpoint must
+                    # not abort the nationwide fallback scan before another
+                    # province can match the requested city.
+                    continue
+                m = _match(children, target)
                 if m is not None:
                     matched = m
                     break

@@ -310,6 +310,7 @@
 
     <script>
         const initialMap = {{ initial_map|tojson }};
+        const generateUrl = {{ url_for('generate')|tojson }};
         const go = document.getElementById('go');
         const goLabel = document.getElementById('go-label');
         const statusEl = document.getElementById('status');
@@ -363,7 +364,7 @@
             setStatus('正在解析地区与景点…', 'info', true);
 
             try {
-                const resp = await fetch('/api/generate', {
+                const resp = await fetch(generateUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ region, attractions }),

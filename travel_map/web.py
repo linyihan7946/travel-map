@@ -5,6 +5,7 @@ highlighting, permanent labels, and the in-page export button already work).
 """
 
 import json
+import os
 import tempfile
 
 import folium
@@ -15,6 +16,42 @@ from .config import Location, TravelConfig
 from .styles import STYLES
 
 app = Flask(__name__)
+
+
+class DeploymentPrefixMiddleware:
+    """Mount the Flask app below the path injected by the deployment gateway.
+
+    ``one-click-deployment`` exposes projects at ``/<project-slug>/`` and
+    provides both ``PUBLIC_BASE_PATH`` and ``X-Forwarded-Prefix``. Its gateway
+    currently forwards the prefix in ``PATH_INFO``, so Flask needs to strip it
+    before routing while retaining ``SCRIPT_NAME`` for URL generation.
+    """
+
+    def __init__(self, wrapped_app):
+        self.wrapped_app = wrapped_app
+
+    def __call__(self, environ, start_response):
+        configured = os.environ.get("PUBLIC_BASE_PATH", "").strip()
+        forwarded = environ.get("HTTP_X_FORWARDED_PREFIX", "").strip()
+        raw_prefix = configured or forwarded
+        prefix = "/" + raw_prefix.strip("/") if raw_prefix.strip("/") else ""
+
+        if prefix:
+            path = environ.get("PATH_INFO", "") or "/"
+            if path == prefix:
+                environ["PATH_INFO"] = "/"
+                environ["SCRIPT_NAME"] = prefix
+            elif path.startswith(prefix + "/"):
+                environ["PATH_INFO"] = path[len(prefix):] or "/"
+                environ["SCRIPT_NAME"] = prefix
+            elif forwarded:
+                # Also support gateways that already stripped the prefix.
+                environ["SCRIPT_NAME"] = prefix
+
+        return self.wrapped_app(environ, start_response)
+
+
+app.wsgi_app = DeploymentPrefixMiddleware(app.wsgi_app)
 
 _SPLITTERS = ("\n", "，", ",", "、", ";", "；")
 _REGION_CHAIN_SPLITTERS = (",", "，", "、", "/", " ")
@@ -104,7 +141,15 @@ def _build_map(region_geojson: dict, resolved: dict, attractions: list[dict]):
         show_dates=False,
     )
     renderer = STYLES["pins"](config)
-    return renderer.render_interactive(), title
+    try:
+        return renderer.render_interactive(), title
+    finally:
+        # The rendered HTML and embedded PNG no longer need the boundary file.
+        # Removing it prevents an ever-growing /tmp directory in the container.
+        try:
+            os.unlink(tmp.name)
+        except FileNotFoundError:
+            pass
 
 
 @app.route("/")
@@ -119,6 +164,12 @@ def index():
         zoom_control=True,
     ).get_root().render()
     return render_template("index.html", initial_map=initial_map)
+
+
+@app.route("/healthz")
+def healthz():
+    """Lightweight container and reverse-proxy health check."""
+    return jsonify({"status": "ok"})
 
 
 @app.route("/api/generate", methods=["POST"])
@@ -197,6 +248,7 @@ def generate():
     except llm.LLMUnavailable as e:
         return jsonify({"error": str(e)}), 500
     except Exception as e:
+        app.logger.exception("Map generation failed")
         return jsonify({"error": f"生成失败：{e}"}), 500
 
 
