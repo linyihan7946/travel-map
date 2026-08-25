@@ -62,8 +62,11 @@ class PinsRenderer(BaseRenderer):
             tiles="OpenStreetMap",
         )
 
-        # Fit bounds to show all locations
-        bounds = self._get_bounds()
+        # Region maps should stay focused on the highlighted administrative
+        # area.  The generic bounds add a fixed two-degree margin, which is
+        # useful for unbounded trip maps but makes a city fill only a small
+        # part of the viewport.
+        bounds = self._get_export_bounds()
         m.fit_bounds([[bounds[0], bounds[2]], [bounds[1], bounds[3]]])
 
         # Add markers for each location
@@ -170,6 +173,23 @@ class PinsRenderer(BaseRenderer):
         </script>'''
         m.get_root().html.add_child(folium.Element(export_html))
 
+    @staticmethod
+    def _add_static_label(ax, loc, label: str) -> None:
+        """Place a label a fixed visual distance above its marker."""
+        ax.annotate(
+            label,
+            xy=(loc.lon, loc.lat),
+            xytext=(0, 10),
+            textcoords="offset points",
+            transform=ccrs.PlateCarree(),
+            fontsize=9,
+            ha="center",
+            va="bottom",
+            fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7),
+            zorder=6,
+        )
+
     def render_static(self, width: int = 1200, height: int = 800) -> Image.Image:
         """Render a static matplotlib/cartopy map with markers."""
         _ensure_cjk_font()
@@ -253,17 +273,7 @@ class PinsRenderer(BaseRenderer):
             if date_str:
                 label += f"\n{date_str}"
 
-            ax.text(
-                loc.lon, loc.lat + 0.5,
-                label,
-                transform=ccrs.PlateCarree(),
-                fontsize=9,
-                ha="center",
-                va="bottom",
-                fontweight="bold",
-                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7),
-                zorder=6,
-            )
+            self._add_static_label(ax, loc, label)
 
         # Add title
         ax.set_title(self.config.title, fontsize=16, fontweight="bold", pad=10)
