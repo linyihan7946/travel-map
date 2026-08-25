@@ -1,0 +1,47 @@
+# Sample Travel Map Configuration
+# Indiana Jones style adventure across multiple continents
+
+title: "The Quest for the Lost Ark"
+style: indiana_jones  # pins | arcs | indiana_jones
+output: interactive    # static | interactive
+show_dates: true
+date_format: "%b %d, %Y"
+
+locations:
+  - name: "Marshall College"
+    lat: 39.1329
+    lon: -84.5150
+    date: "1936-01-15"
+    label: "Departure"
+
+  - name: "Washington D.C."
+    lat: 38.9072
+    lon: -77.0369
+    date: "1936-01-18"
+    label: "Army Intelligence briefing"
+
+  - name: "Nepal"
+    lat: 27.7172
+    lon: 85.3240
+    date: "1936-01-25"
+    label: "The Raven Bar"
+
+  - name: "Cairo"
+    lat: 30.0444
+    lon: 31.2357
+    date: "1936-02-01"
+    label: "The Map Room"
+
+  - name: "Tanis"
+    lat: 30.8773
+    lon: 31.8801
+    date: "1936-02-10"
+    label: "The Well of Souls"
+
+# Optional: explicit routes
+# If not specified, routes are auto-generated chronologically
+# routes:
+#   - from: "Marshall College"
+#     to: "Washington D.C."
+#   - from: "Washington D.C."
+#     to: "Nepal"

@@ -1,0 +1,54 @@
+# 云南省旅游景点分布图
+# 使用 pins 样式，展示各景点在地图上的分布位置
+
+title: "云南 · 旅游景点分布图"
+style: pins            # 分布图使用 pins 样式
+output: interactive    # 交互式 HTML 地图
+show_dates: false
+show_labels: true      # 在标记旁常驻显示景点名
+export_button: true    # 在地图上加一个「导出图片」按钮
+
+# 高亮整个云南省行政区域（GeoJSON 边界，相对本配置文件路径）
+regions:
+  - yunnan.geojson
+
+locations:
+  - name: "昆明"
+    lat: 25.0389
+    lon: 102.7183
+    label: "省会 · 春城"
+
+  - name: "大理"
+    lat: 25.6065
+    lon: 100.2676
+    label: "大理古城 · 白族风情"
+
+  - name: "丽江"
+    lat: 26.8721
+    lon: 100.2299
+    label: "丽江古城 · 世界文化遗产"
+
+  - name: "香格里拉"
+    lat: 27.8256
+    lon: 99.7023
+    label: "迪庆藏族自治州 · 高原秘境"
+
+  - name: "洱海"
+    lat: 25.7630
+    lon: 100.1850
+    label: "高原湖泊"
+
+  - name: "苍山"
+    lat: 25.6880
+    lon: 100.0980
+    label: "苍山十九峰"
+
+  - name: "梅里雪山"
+    lat: 28.4300
+    lon: 98.6800
+    label: "海拔6740米 · 卡瓦格博"
+
+  - name: "西双版纳"
+    lat: 22.0090
+    lon: 100.7970
+    label: "热带雨林 · 傣族风情"

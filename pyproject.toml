@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "travel-map"
+version = "0.1.0"
+description = "Generate beautiful travel maps from YAML config with multiple visual styles"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "folium>=0.15.0",
+    "matplotlib>=3.8.0",
+    "cartopy>=0.22.0",
+    "Pillow>=10.0.0",
+    "PyYAML>=6.0",
+    "click>=8.1.0",
+    "numpy>=1.24.0",
+    "plotly>=6.1.1",
+    "kaleido>=1.2.0",
+]
+
+[project.scripts]
+travel-map = "travel_map.cli:cli"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["travel_map*"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+travel-map = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+python = ">=3.14.2,<3.15"
+numpy = ">=2.4.0,<3"
+matplotlib = ">=3.10.8,<4"
+cartopy = ">=0.25.0,<0.26"
+pillow = ">=12.0.0,<13"
+pyyaml = ">=6.0.3,<7"
+click = ">=8.3.1,<9"
+folium = ">=0.20.0,<0.21"
+pillow-heif = ">=1.1.1,<2"
+plotly = ">=6.1.1,<7"
