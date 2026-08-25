@@ -178,7 +178,9 @@ class PinsRenderer(BaseRenderer):
         fig_width = width / 100
         fig_height = height / 100
 
-        bounds = self._get_bounds()
+        # Use tight region bounds for export (focused on the highlighted area),
+        # falling back to the wider padded bounds for general trip maps.
+        bounds = self._get_export_bounds()
         center_lon = (bounds[2] + bounds[3]) / 2
 
         # Region-focused maps use real OSM tiles as the base texture; general

@@ -33,6 +33,29 @@ travel-map preview trip.yml
 travel-map from-photos ./vacation_photos -o trip.yml
 ```
 
+## Web UI（输入地区 + 景点列表，自动生成地图）
+
+在界面上输入一个地区（国家 / 省 / 市 / 县 / 乡）和一批景点名，系统会高亮该地区、标记景点，并可一键导出图片。可选接入阿里百炼（DashScope）大模型来做自然语言理解（地区简称规范化 + 景点经纬度）。
+
+```bash
+# 启动 Web 界面（默认 http://127.0.0.1:8000）
+travel-map serve
+travel-map serve --port 8000
+```
+
+### 接入百炼大模型（可选）
+
+1. 在项目根目录创建 `.env`（已加入 `.gitignore`，不会上传）：
+
+   ```
+   DASHSCOPE_API_KEY=你的百炼Key
+   BAILIAN_MODEL=qwen3.7-plus    # 可选，默认 qwen3.7-plus
+   ```
+
+2. 重启 `travel-map serve` 即可。没有 Key 时仍可用：地区走阿里 DataV 行政区划、景点走 OSM Nominatim 地理编码，但无法识别简称/口语化输入。
+
+> 说明：行政区划边界使用阿里 DataV 免费接口（无需额外 Key）；大模型仅用于语言理解，行政区划结构仍以 DataV 为准。默认模型为 `qwen3.7-plus`，可通过 `BAILIAN_MODEL` 环境变量切换为其他兼容模型（如 `qwen-plus`、`qwen-turbo`、`qwen-flash` 等）。
+
 ## YAML Configuration
 
 ```yaml
@@ -115,6 +138,14 @@ Generate a YAML config from geotagged photos.
 ```bash
 travel-map from-photos ./photos -o trip.yml
 travel-map from-photos ./photos --title "Summer Vacation" --style arcs
+```
+
+### `serve`
+Start the web UI for generating region maps from text input.
+
+```bash
+travel-map serve
+travel-map serve --host 0.0.0.0 --port 8000
 ```
 
 ## Features

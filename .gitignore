@@ -41,7 +41,11 @@ Thumbs.db
 *.png
 *.svg
 !examples/
+!travel_map/templates/*.html
 photos/
+
+# Secrets / local env
+.env
 
 # pixi environments
 .pixi

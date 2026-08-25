@@ -18,6 +18,8 @@ dependencies = [
     "numpy>=1.24.0",
     "plotly>=6.1.1",
     "kaleido>=1.2.0",
+    "flask>=3.0",
+    "requests>=2.31",
 ]
 
 [project.scripts]

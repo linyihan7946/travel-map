@@ -134,6 +134,17 @@ class BaseRenderer(ABC):
             max(lons) + padding,
         )
 
+    def _get_export_bounds(self) -> tuple[float, float, float, float]:
+        """Get tight bounds for PNG export, focused on the highlighted region.
+
+        When regions are configured, returns the exact region bounds (no extra
+        padding) so the exported PNG is tightly cropped to the highlighted area.
+        """
+        region_bounds = self._region_bounds()
+        if region_bounds:
+            return region_bounds
+        return self._get_bounds()
+
     def _get_center(self) -> tuple[float, float]:
         """Get center point of all locations.
 

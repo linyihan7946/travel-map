@@ -281,5 +281,17 @@ def from_photos(photo_dir, output, title, style):
     click.echo("You can edit this file to customize location names and add labels.")
 
 
+@cli.command()
+@click.option("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1).")
+@click.option("--port", default=8000, type=int, help="Bind port (default: 8000).")
+@click.option("--debug", is_flag=True, help="Enable Flask debug mode.")
+def serve(host, port, debug):
+    """Start the web UI for generating region maps from text input."""
+    from .web import run
+
+    click.echo(f"Starting travel-map web UI at http://{host}:{port}")
+    run(host=host, port=port, debug=debug)
+
+
 if __name__ == "__main__":
     cli()

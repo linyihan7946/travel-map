@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>旅行地图生成器</title>
+    <style>
+        :root {
+            --accent: #e74c3c;
+            --accent2: #f39c12;
+            --text: #2c3e50;
+            --muted: #7f8c8d;
+            --bg: #f5f6f8;
+            --card: #ffffff;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+            color: var(--text);
+            background: var(--bg);
+        }
+        header {
+            background: linear-gradient(120deg, #e74c3c, #f39c12);
+            color: #fff;
+            padding: 28px 24px;
+            text-align: center;
+        }
+        header h1 { margin: 0 0 6px; font-size: 24px; }
+        header p { margin: 0; opacity: 0.92; font-size: 14px; }
+        .wrap { max-width: 960px; margin: 0 auto; padding: 20px; }
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            padding: 22px;
+            margin-bottom: 20px;
+        }
+        label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: 14px; }
+        label:first-of-type { margin-top: 0; }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d5dbe0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            color: var(--text);
+        }
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent2);
+            box-shadow: 0 0 0 3px rgba(243,156,18,0.15);
+        }
+        textarea { min-height: 90px; resize: vertical; }
+        .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+        button {
+            margin-top: 18px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 26px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(231,76,60,0.35);
+        }
+        button:hover { background: #c0392b; }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; box-shadow: none; }
+        #status { margin-top: 14px; font-size: 14px; min-height: 20px; }
+        #status.error { color: #c0392b; }
+        #status.info { color: var(--muted); }
+        #result { display: none; }
+        #result .meta {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+        iframe.map-frame {
+            width: 100%;
+            height: 70vh;
+            border: 1px solid #e0e4e8;
+            border-radius: 10px;
+            background: #fff;
+        }
+        /* Mobile responsive */
+        @media (max-width: 640px) {
+            header { padding: 18px 16px; }
+            header h1 { font-size: 20px; }
+            header p { font-size: 13px; }
+            .wrap { padding: 12px; }
+            .card { padding: 16px; border-radius: 10px; margin-bottom: 14px; }
+            label { font-size: 13px; margin: 12px 0 5px; }
+            input[type="text"], textarea {
+                padding: 9px 11px;
+                font-size: 15px; /* prevents iOS zoom on focus */
+            }
+            textarea { min-height: 72px; }
+            .hint { font-size: 11px; }
+            button {
+                width: 100%;
+                padding: 13px 20px;
+                font-size: 15px;
+                margin-top: 14px;
+            }
+            #status { font-size: 13px; }
+            #result .meta { font-size: 12px; }
+            iframe.map-frame { height: 55vh; border-radius: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🗺️ 旅行地图生成器</h1>
+        <p>输入地区与景点列表，自动高亮区域并标记景点</p>
+    </header>
+
+    <div class="wrap">
+        <div class="card">
+            <label for="region">地区（国家 / 省 / 市 / 县 / 乡）</label>
+            <input type="text" id="region" placeholder="例如：云南省、昆明市、大理白族自治州 …">
+            <div class="hint">支持简称（如“云南”），接入大模型后会自动规范化为全称。</div>
+
+            <label for="attractions">景点列表（每行一个，或用逗号分隔）</label>
+            <textarea id="attractions" placeholder="昆明&#10;大理&#10;丽江&#10;香格里拉"></textarea>
+            <div class="hint">也可以只在这里粘贴一行「云南：昆明、大理、丽江」，系统自动拆分。</div>
+
+            <button id="go" type="button">生成地图</button>
+            <div id="status"></div>
+        </div>
+
+        <div id="result" class="card">
+            <div class="meta" id="meta"></div>
+            <iframe id="frame" class="map-frame" title="map"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const go = document.getElementById('go');
+        const statusEl = document.getElementById('status');
+        const resultEl = document.getElementById('result');
+        const frame = document.getElementById('frame');
+        const metaEl = document.getElementById('meta');
+
+        function setStatus(msg, kind) {
+            statusEl.textContent = msg;
+            statusEl.className = kind || '';
+        }
+
+        go.addEventListener('click', async () => {
+            const region = document.getElementById('region').value.trim();
+            const attractions = document.getElementById('attractions').value.trim();
+            if (!region && !attractions) {
+                setStatus('请填写地区或景点列表', 'error');
+                return;
+            }
+
+            go.disabled = true;
+            setStatus('正在生成地图，请稍候…（大模型解析 + 行政区划 + 渲染）', 'info');
+            resultEl.style.display = 'none';
+
+            try {
+                const resp = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ region, attractions }),
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    throw new Error(data.error || ('HTTP ' + resp.status));
+                }
+                frame.srcdoc = data.html;
+                metaEl.textContent = `地区：${data.region} ｜ 景点：${data.attractions.join('、')}`;
+                resultEl.style.display = 'block';
+                setStatus('生成完成 ✅ 地图右上角可导出图片。', '');
+                resultEl.scrollIntoView({ behavior: 'smooth' });
+            } catch (err) {
+                setStatus('出错：' + err.message, 'error');
+            } finally {
+                go.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
